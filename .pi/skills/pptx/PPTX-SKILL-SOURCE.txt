@@ -1,0 +1,3 @@
+Source: https://github.com/anthropics/skills
+Path: skills/pptx
+Commit: 1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064

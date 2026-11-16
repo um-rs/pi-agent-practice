@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+.pi/npm/
+node_modules/
+auth.json
+models.json
+web-search.json
+*.raw
+*.grid.json
