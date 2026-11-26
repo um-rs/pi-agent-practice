@@ -1,3 +1,14 @@
+# Pi Agent 课程实践作业仓库（实践课 1–5）
+
+> **作业报告导航**：
+> - **实践课 1**：本页正文（[Pi Agent 安装与基础使用](#实践课-1pi-agent-安装与基础使用)）
+> - **实践课 2**：[practice-02/practice-02.md](practice-02/practice-02.md)（小组组织建仓与 Pi Agent 源码阅读）
+> - **实践课 3**：[practice-03/practice-03.md](practice-03/practice-03.md)（Pi Agent 源码获取、依赖安装与本地编译）
+> - **实践课 4**：[practice-04/practice-04.md](practice-04/practice-04.md)（Pi Agent 的模型调用与运行流程）
+> - **实践课 5**：[practice-05/practive-05.md](practice-05/practive-05.md)（Pi Agent 源码泛读与功能定位）
+
+---
+
 # 实践课 1：Pi Agent 安装与基础使用
 
 - **GitHub 登录名**：`um-rs`

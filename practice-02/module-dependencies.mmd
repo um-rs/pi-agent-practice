@@ -1,0 +1,76 @@
+flowchart TB
+    %% 箭头方向统一为：使用方 (Consumer) --> 被依赖方 (Dependency)
+    subgraph L4["L4 应用与评测层 (CLI / Runtime Host / Evals)"]
+        CA["coding-agent<br/>(@earendil-works/pi-coding-agent)"]
+        ENV["env<br/>(@earendil-works/pi-env)"]
+        EVALS["evals [仅Workspace开发/评测，不在根build]<br/>(@earendil-works/pi-evals)"]
+    end
+
+    subgraph L3["L3 Agent 编排与持久化运行时层"]
+        AGENT["agent<br/>(@earendil-works/pi-agent-core)"]
+        DURABLE["durable<br/>(@earendil-works/pi-durable)"]
+    end
+
+    subgraph L2["L2 统一模型接口与跨进程对象运行时层"]
+        AI["ai<br/>(@earendil-works/pi-ai)"]
+        CHORD["chord<br/>(@earendil-works/chord)"]
+    end
+
+    subgraph L1["L1 独立功能组件层 (零内部包依赖)"]
+        TUI["tui<br/>(@earendil-works/pi-tui)"]
+        CODEMODE["codemode<br/>(@earendil-works/pi-codemode)"]
+        MCP["mcp<br/>(@earendil-works/pi-mcp)"]
+    end
+
+    subgraph L0["L0 基础契约与校验底座层 (零内部包依赖)"]
+        SCHEMA["schema<br/>(@earendil-works/pi-schema)"]
+        TELEMETRY["telemetry<br/>(@earendil-works/pi-telemetry)"]
+    end
+
+    %% coding-agent 直接依赖 (packages/coding-agent/package.json)
+    CA --> AGENT
+    CA --> AI
+    CA --> TUI
+    CA --> CODEMODE
+    CA --> MCP
+
+    %% agent 直接依赖 (packages/agent/package.json)
+    AGENT --> AI
+    AGENT --> SCHEMA
+
+    %% env 直接依赖 (packages/env/package.json)
+    ENV --> DURABLE
+    ENV --> CHORD
+
+    %% durable 直接依赖 (packages/durable/package.json)
+    DURABLE --> CHORD
+    DURABLE --> AI
+    DURABLE --> CODEMODE
+    DURABLE --> SCHEMA
+    DURABLE --> TELEMETRY
+
+    %% ai 直接依赖 (packages/ai/package.json)
+    AI --> SCHEMA
+    AI --> TELEMETRY
+
+    %% chord 直接依赖 (packages/chord/package.json)
+    CHORD --> SCHEMA
+    CHORD --> TELEMETRY
+
+    %% evals 开发依赖 (packages/evals/package.json devDependencies，虚线区分)
+    EVALS -. "devDependencies" .-> CA
+    EVALS -. "devDependencies" .-> AI
+
+    classDef l4 fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    classDef l3 fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px,color:#0f172a
+    classDef l2 fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#0f172a
+    classDef l1 fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#0f172a
+    classDef l0 fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#0f172a
+    classDef dev fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,stroke-dasharray: 5 5,color:#334155
+
+    class CA,ENV l4
+    class EVALS dev
+    class AGENT,DURABLE l3
+    class AI,CHORD l2
+    class TUI,CODEMODE,MCP l1
+    class SCHEMA,TELEMETRY l0

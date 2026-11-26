@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor User as 用户 (User)
+    participant UI as 交互与会话层<br/>(interactive-mode.ts / agent-session.ts)
+    participant AG as Agent 执行层<br/>(agent.ts / agent-loop.ts)
+    participant Model as 模型请求层<br/>(model-runtime.ts / pi-ai 适配器 ↔ 远端模型)
+    participant Read as read 工具与本地文件<br/>(tools/read.ts / fs/promises)
+
+    User->>UI: 输入指令并按回车（读取当前目录 handoff.txt）
+    UI->>UI: interactive-mode.ts 的 defaultEditor.onSubmit(text)<br/>经 onInputCallback 跨文件调用 agent-session.ts 的<br/>session.prompt(text) → _startRun() → _prepareRun()
+    UI->>AG: 调用 agent.ts 的 Agent.prompt(messages) → runPromptMessages()
+    AG->>AG: 跨文件调用 agent-loop.ts 的 runAgentLoop() → runLoop()<br/>发出 turn_start 与 message_start(user) 事件
+
+    rect rgb(239, 246, 255)
+        Note over AG,Model: 第 1 轮模型调用 —— 远端模型决定调用 read 工具
+        AG->>AG: streamAssistantResponse() 执行<br/>config.convertToLlm(messages) 与 normalizeContext()
+        AG->>Model: await streamFunction(config.model, llmContext, options)
+        Note over Model: model-runtime.ts 的 ModelRuntime.streamSimple()<br/>调用 pi-ai 协议适配器向远端模型发送 HTTPS POST 请求<br/>远端模型经 SSE 流式返回 toolCall — read(path="handoff.txt")
+        Model-->>AG: 返回异步事件流 (start → toolcall_delta/end → done)
+        AG-->>UI: emit(message_update / message_end)
+        UI->>UI: interactive-mode.ts 的 handleEvent 命中 message_update<br/>创建 ToolExecutionComponent("read") 在界面显示工具框
+    end
+
+    rect rgb(236, 253, 245)
+        Note over AG,Read: 本地工具执行 —— 流式分块读取 handoff.txt 并写回上下文
+        AG->>AG: runLoop() 检测到 toolCalls.length > 0<br/>调用 executeToolCalls() → prepareToolCall() 校验参数
+        AG->>Read: executePreparedToolCall() 调用 read.ts 的 execute()
+        Note over Read: resolveReadPathAsync() 解析绝对路径 → fsAccess 校验可读<br/>因 defaultReadOperations.createReadStream 存在且范围合法<br/>实际走流式读取 selectLinesFromStream(readLocalFileChunks)<br/>内部执行 fsOpen(path,"r") → handle.stat() → handle.createReadStream()
+        Read-->>AG: 返回文本内容块（待办与完整启动命令）
+        AG->>AG: createToolResultMessage() 构造 ToolResultMessage<br/>for 循环执行 currentContext.messages.push(result)<br/>置 hasMoreToolCalls = true 进入内层 while 下一轮
+    end
+
+    rect rgb(254, 249, 195)
+        Note over User,Model: 第 2 轮模型调用与终端显示 —— 携带 toolResult 生成最终回复
+        AG->>AG: streamAssistantResponse() 组装含 toolResult 的新上下文
+        AG->>Model: await streamFunction(config.model, llmContext, options)
+        Note over Model: 适配器将 [system, user, assistant(toolCall), toolResult]<br/>POST 至远端模型，远端模型流式返回包含待办与启动命令的答复
+        Model-->>AG: 返回异步事件流 (start → text_delta → done)
+        AG-->>UI: 依次 emit(message_start / message_update / message_end)
+        Note over UI: agent-session.ts 的 _handleAgentEvent 将消息持久化至 .jsonl<br/>interactive-mode.ts 的 subscribeToAgent → handleEvent 分支<br/>1) message_start 新建 AssistantMessageComponent 挂载 chatContainer<br/>2) message_update 调用 updateContent(..., true) 与 ui.requestRender()<br/>3) message_end 调用 updateContent(..., false) 完成最终定稿显示
+        UI-->>User: 用户在终端界面看到原样输出的待办与启动命令
+    end

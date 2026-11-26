@@ -1,0 +1,41 @@
+flowchart TB
+    START["<b>共同起点：阶段 A 已结束</b><br/>Pi 已调用 read 工具读到 handoff.txt 中的待办与启动命令并完成回答<br/>完整会话记录（user + assistant[toolCall] + toolResult + assistant）已持久化保存在<br/>~/.pi/agent/sessions/对应项目目录/时间戳_会话ID.jsonl"]
+
+    subgraph RIGHT["右边分支：输入 /new 新建会话"]
+        direction TB
+        B2_1["1. 在 Pi 交互界面输入 /new<br/>(interactive-mode.ts 的 defaultEditor.onSubmit → handleClearCommand())"]
+        B2_2["2. agent-session-runtime.ts 的 runtimeHost.newSession()<br/>调用 SessionManager.create(cwd, sessionDir) 创建全新会话"]
+        B2_3["3. 新会话仅保留初始 system 消息与工具声明，<b>聊天历史 messages 为空</b><br/>界面清空并显示 ✓ New session started"]
+        B2_4["4. 用户在同一目录、同一模型下输入完全相同的追问：<br/>“接着上次的待办，给 README 起草一条启动说明，写出交接单里的完整启动命令。<br/>只用这次会话已有的信息。不要调用工具。如果缺少命令，请直接说明。”"]
+        B2_5["5. 请求模型时发出的 llmContext.messages 仅包含：<br/><b>[system] + [本次 user 提问]</b><br/>（新会话的聊天历史里没有阶段 A 读到的启动命令）"]
+        B2_6["<b>最终结果</b>：未调用任何工具（仅 1 轮模型请求）<br/>因聊天历史为空且被禁止调用工具，模型直接说明当前会话缺少交接单中的完整启动命令"]
+
+        B2_1 --> B2_2 --> B2_3 --> B2_4 --> B2_5 --> B2_6
+    end
+
+    subgraph LEFT["左边分支：加 -c 恢复旧会话 (node ./packages/coding-agent/dist/cli.js -c)"]
+        direction TB
+        B1_1["1. 退出 Pi 后在原项目目录加 -c (--continue) 重新启动"]
+        B1_2["2. main.ts 的 createSessionManager() 识别 parsed.continue<br/>调用 SessionManager.continueRecent(cwd, sessionDir)"]
+        B1_3["3. session-manager.ts 的 findMostRecentSession() 打开阶段 A 保存的 .jsonl 文件<br/>loadEntriesFromFile() 读取条目 → buildSessionContext() 恢复历史消息至 agent.state.messages<br/>终端界面恢复显示阶段 A 的聊天记录"]
+        B1_4["4. 用户输入追问：<br/>“接着上次的待办，给 README 起草一条启动说明，写出交接单里的完整启动命令。<br/>只用这次会话已有的信息。不要调用工具。如果缺少命令，请直接说明。”"]
+        B1_5["5. 请求模型时发出的 llmContext.messages 包含：<br/><b>[system] + [从文件恢复的阶段 A 历史消息（含 handoff.txt 的 toolResult 与启动命令）] + [本次 user 提问]</b>"]
+        B1_6["<b>最终结果</b>：未调用任何工具（仅 1 轮模型请求）<br/>模型直接利用已恢复的会话历史写出完整命令：<br/><code>npm run demo -- --profile grp26-aurora-518</code>"]
+
+        B1_1 --> B1_2 --> B1_3 --> B1_4 --> B1_5 --> B1_6
+    end
+
+    START --> B1_1
+    START --> B2_1
+
+    classDef startNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#0f172a
+    classDef leftStep fill:#dcfce7,stroke:#16a34a,stroke-width:1.8px,color:#0f172a
+    classDef rightStep fill:#fee2e2,stroke:#dc2626,stroke-width:1.8px,color:#0f172a
+    classDef leftRes fill:#bbf7d0,stroke:#15803d,stroke-width:2.2px,color:#0f172a
+    classDef rightRes fill:#fecaca,stroke:#b91c1c,stroke-width:2.2px,color:#0f172a
+
+    class START startNode
+    class B1_1,B1_2,B1_3,B1_4,B1_5 leftStep
+    class B2_1,B2_2,B2_3,B2_4,B2_5 rightStep
+    class B1_6 leftRes
+    class B2_6 rightRes
